@@ -1,69 +1,58 @@
-# OpenMAIC -> Palabra.ai TTS Adapter
+# OpenMAIC <-> Palabra.ai Audio Adapter
 
-Small FastAPI service that exposes an OpenAI-compatible TTS endpoint:
+OpenAI-compatible adapter for Palabra.ai:
 
-`POST /v1/audio/speech`
+- TTS: `POST /v1/audio/speech`
+- ASR/STT: `POST /v1/audio/transcriptions`
+- Models: `GET /v1/models`
+- Health: `GET /health`
 
-and forwards the text to Palabra.ai Realtime TTS.
+## Dokploy
 
-## Dokploy (Drop) deployment
+Internal port: `8000`.
 
-1. Create a new **Application** in Dokploy.
-2. In **Provider**, choose **Drop** and upload the ZIP.
-3. In **Build Type**, choose **Dockerfile**.
-4. Dockerfile path: `Dockerfile`
-5. Docker context: `.`
-6. In **Environment**, add:
+Required environment variables:
 
 ```env
 PALABRA_API_KEY=YOUR_REAL_PALABRA_KEY
 ADAPTER_API_KEY=YOUR_OWN_LONG_RANDOM_SECRET
-PALABRA_LANGUAGE=es-eu
+
+# TTS
+PALABRA_LANGUAGE=es-la
 PALABRA_MODEL=auto
 PALABRA_VOICE=default_high
+
+# ASR
+PALABRA_ASR_LANGUAGE=es
 ```
 
-7. Deploy.
-8. Add a domain in Dokploy pointing to internal port `8000`, for example:
-   `tts.example.com`
-9. Test:
-   `https://tts.example.com/health`
+After updating from the older TTS-only version, use **Rebuild** in Dokploy because `requirements.txt` now adds `python-multipart`.
 
-Expected JSON:
+## OpenMAIC TTS
 
-```json
-{
-  "status": "ok",
-  "provider": "palabra.ai",
-  "language": "es-eu",
-  "voice": "default_high"
-}
-```
+- Base URL: `https://YOUR-DOMAIN/v1`
+- Model: `palabra-tts`
+- API key: `ADAPTER_API_KEY`
 
-## Test TTS
+## OpenMAIC ASR
+
+- Base URL: `https://YOUR-DOMAIN/v1`
+- Model: `palabra-asr`
+- API key: `ADAPTER_API_KEY`
+- Language: `es`
+
+## ASR test
 
 ```bash
-curl -X POST "https://tts.example.com/v1/audio/speech" \
+curl -X POST "https://YOUR-DOMAIN/v1/audio/transcriptions" \
   -H "Authorization: Bearer YOUR_ADAPTER_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "palabra-tts",
-    "input": "Hola. Bienvenidos a la clase de análisis de datos.",
-    "voice": "default",
-    "response_format": "mp3",
-    "speed": 1.0
-  }' \
-  --output prueba.mp3
+  -F "file=@prueba.wav" \
+  -F "model=palabra-asr" \
+  -F "language=es"
 ```
 
-## OpenMAIC custom TTS
+Expected:
 
-Configure:
-
-- Name: `Palabra AI`
-- Base URL: `https://tts.example.com/v1`
-- Default model: `palabra-tts`
-- Requires API key: enabled
-- API key: use `ADAPTER_API_KEY`, NOT your real Palabra key.
-
-The real `PALABRA_API_KEY` stays only in Dokploy.
+```json
+{"text":"Texto reconocido..."}
+```
